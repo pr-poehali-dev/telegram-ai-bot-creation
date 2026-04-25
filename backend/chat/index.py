@@ -4,7 +4,7 @@ from urllib.request import urlopen, Request
 from urllib.error import URLError
 
 def handler(event: dict, context) -> dict:
-    """Обработчик чата — отправляет сообщения в OpenAI и возвращает ответ"""
+    """Обработчик чата — отправляет сообщения в Google Gemini и возвращает ответ"""
 
     if event.get('httpMethod') == 'OPTIONS':
         return {
@@ -20,6 +20,7 @@ def handler(event: dict, context) -> dict:
 
     body = json.loads(event.get('body') or '{}')
     messages = body.get('messages', [])
+
     if not messages:
         return {
             'statusCode': 400,
@@ -27,31 +28,36 @@ def handler(event: dict, context) -> dict:
             'body': json.dumps({'error': 'Нет сообщений'})
         }
 
-    api_key = os.environ.get('OPENAI_API_KEY', '')
+    api_key = os.environ.get('GEMINI_API_KEY', '')
+
+    # Конвертируем формат в Gemini
+    gemini_contents = []
+    for msg in messages:
+        role = 'user' if msg['role'] == 'user' else 'model'
+        gemini_contents.append({
+            'role': role,
+            'parts': [{'text': msg['content']}]
+        })
 
     payload = json.dumps({
-        'model': 'gpt-4o-mini',
-        'messages': [
-            {'role': 'system', 'content': 'Ты полезный ИИ-помощник. Отвечай подробно и по существу на русском языке. Используй эмодзи для наглядности.'}
-        ] + messages,
-        'max_tokens': 1000,
-        'temperature': 0.7,
+        'system_instruction': {
+            'parts': [{'text': 'Ты полезный ИИ-помощник. Отвечай подробно и по существу на русском языке. Используй эмодзи там, где это уместно.'}]
+        },
+        'contents': gemini_contents,
+        'generationConfig': {
+            'maxOutputTokens': 1500,
+            'temperature': 0.7,
+        }
     }).encode('utf-8')
 
-    req = Request(
-        'https://api.openai.com/v1/chat/completions',
-        data=payload,
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-        },
-        method='POST'
-    )
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}'
+
+    req = Request(url, data=payload, headers={'Content-Type': 'application/json'}, method='POST')
 
     try:
         with urlopen(req, timeout=25) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            reply = data['choices'][0]['message']['content']
+            reply = data['candidates'][0]['content']['parts'][0]['text']
             return {
                 'statusCode': 200,
                 'headers': {'Access-Control-Allow-Origin': '*'},

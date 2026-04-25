@@ -291,11 +291,34 @@ export default function Index() {
     if (isNew) setActiveId(convId);
     setInput("");
     setIsTyping(true);
-    await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
+
+    let replyText = "";
+    try {
+      const allMessages = isNew
+        ? [{ role: "user", content: userText }]
+        : [
+            ...(conversations.find((c) => c.id === convId)?.messages ?? []).map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            { role: "user", content: userText },
+          ];
+
+      const res = await fetch("https://functions.poehali.dev/564925b5-4170-4bfe-9fc1-4cf23d62d5cb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: allMessages }),
+      });
+      const data = await res.json();
+      replyText = data.reply || data.error || "Не удалось получить ответ";
+    } catch {
+      replyText = "⚠️ Ошибка соединения с сервером. Попробуйте ещё раз.";
+    }
+
     const aiMessage: Message = {
       id: generateId(),
       role: "assistant",
-      content: generateSmartResponse(userText),
+      content: replyText,
       timestamp: new Date(),
     };
     setConversations((prev) =>
@@ -304,7 +327,7 @@ export default function Index() {
       )
     );
     setIsTyping(false);
-  }, [input, isTyping, activeId]);
+  }, [input, isTyping, activeId, conversations]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
