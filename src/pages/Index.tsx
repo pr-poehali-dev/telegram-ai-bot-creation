@@ -208,6 +208,7 @@ export default function Index() {
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isTyping) return;
+    const userText = input.trim();
     let convId = activeId;
     let isNew = false;
     if (!convId) {
@@ -217,10 +218,10 @@ export default function Index() {
     const userMessage: Message = {
       id: generateId(),
       role: "user",
-      content: input.trim(),
+      content: userText,
       timestamp: new Date(),
     };
-    const title = input.trim().length > 40 ? input.trim().slice(0, 40) + "…" : input.trim();
+    const title = userText.length > 40 ? userText.slice(0, 40) + "…" : userText;
     setConversations((prev) => {
       if (isNew) {
         return [
@@ -242,11 +243,11 @@ export default function Index() {
     if (isNew) setActiveId(convId);
     setInput("");
     setIsTyping(true);
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
+    await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
     const aiMessage: Message = {
       id: generateId(),
       role: "assistant",
-      content: generateSmartResponse(input.trim()),
+      content: generateSmartResponse(userText),
       timestamp: new Date(),
     };
     setConversations((prev) =>
